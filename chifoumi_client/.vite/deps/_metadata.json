@@ -1,0 +1,70 @@
+{
+  "hash": "dfb97b84",
+  "configHash": "b821a505",
+  "lockfileHash": "c9111cf8",
+  "browserHash": "3d33734b",
+  "optimized": {
+    "react": {
+      "src": "../../node_modules/.pnpm/react@19.1.0/node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "f8ccbe6f",
+      "needsInterop": true
+    },
+    "react-dom": {
+      "src": "../../node_modules/.pnpm/react-dom@19.1.0_react@19.1.0/node_modules/react-dom/index.js",
+      "file": "react-dom.js",
+      "fileHash": "f53bd4e5",
+      "needsInterop": true
+    },
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/.pnpm/react@19.1.0/node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "a319046d",
+      "needsInterop": true
+    },
+    "react/jsx-runtime": {
+      "src": "../../node_modules/.pnpm/react@19.1.0/node_modules/react/jsx-runtime.js",
+      "file": "react_jsx-runtime.js",
+      "fileHash": "c50f3f64",
+      "needsInterop": true
+    },
+    "@supabase/supabase-js": {
+      "src": "../../node_modules/.pnpm/@supabase+supabase-js@2.49.4/node_modules/@supabase/supabase-js/dist/module/index.js",
+      "file": "@supabase_supabase-js.js",
+      "fileHash": "5951c5d1",
+      "needsInterop": false
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/.pnpm/react-dom@19.1.0_react@19.1.0/node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "6316626a",
+      "needsInterop": true
+    },
+    "socket.io-client": {
+      "src": "../../node_modules/.pnpm/socket.io-client@4.8.1/node_modules/socket.io-client/build/esm/index.js",
+      "file": "socket__io-client.js",
+      "fileHash": "365bfbf7",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "browser-JOQP26MB": {
+      "file": "browser-JOQP26MB.js"
+    },
+    "chunk-YYT7X3GQ": {
+      "file": "chunk-YYT7X3GQ.js"
+    },
+    "chunk-S5I5KNQM": {
+      "file": "chunk-S5I5KNQM.js"
+    },
+    "browser-KXSHW4JH": {
+      "file": "browser-KXSHW4JH.js"
+    },
+    "chunk-ZGUEDJZW": {
+      "file": "chunk-ZGUEDJZW.js"
+    },
+    "chunk-V4OQ3NZ2": {
+      "file": "chunk-V4OQ3NZ2.js"
+    }
+  }
+}

@@ -53,7 +53,7 @@ export default function AuthForm({ onLogin }: { onLogin: (profile: any) => void 
       alert("Remplis tous les champs !");
       return;
     }
-
+  
     let error;
     if (isLogin) {
       const res = await signIn(email, password);
@@ -62,12 +62,13 @@ export default function AuthForm({ onLogin }: { onLogin: (profile: any) => void 
       const res = await signUp(email, password, pseudo, handColor);
       error = res.error;
     }
-
+  
     if (error) {
       alert("Erreur : " + error.message);
     } else {
       const profile = await getProfile();
       setUserProfile(profile);
+      onLogin(profile); // ← Ajoute ça ici !
     }
   };
 
