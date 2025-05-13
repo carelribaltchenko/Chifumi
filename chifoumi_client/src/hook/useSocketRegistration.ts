@@ -1,29 +1,37 @@
-import { useEffect, useState } from "react";
-import { socket } from "../services/socket";
+import { useState, useEffect } from "react";
+import { socket } from "../socket";
+
+interface ConnectedUser {
+  userId: string;
+  pseudo: string;
+  handColor: string;
+}
 
 export function useSocketRegistration(userProfile: any) {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<ConnectedUser[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userProfile) return;
+    if (!socket) return;
 
-    if (!socket.connected) socket.connect();
+    const handleUsersUpdate = (userList: ConnectedUser[]) => {
+      console.log("📥 Liste des utilisateurs reçue :", userList);
+      setUsers(userList);
+    };
 
-    socket.emit("registerUser", {
-      userId: userProfile.id,
-      pseudo: userProfile.pseudo,
-      handColor: userProfile.hand_color,
-    });
+    const handleRegistrationError = (errMsg: string) => {
+      console.error("🚫 Erreur d'enregistrement :", errMsg);
+      setError(errMsg);
+    };
 
-    socket.on("usersUpdate", (userList) => setUsers(userList));
-    socket.on("registerFailed", ({ reason }) => setError(reason));
+    socket.on("usersUpdate", handleUsersUpdate);
+    socket.on("registrationError", handleRegistrationError);
 
     return () => {
-      socket.off("usersUpdate");
-      socket.off("registerFailed");
+      socket.off("usersUpdate", handleUsersUpdate);
+      socket.off("registrationError", handleRegistrationError);
     };
-  }, [userProfile]);
+  }, []);
 
   return { users, error };
 }

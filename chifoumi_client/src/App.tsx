@@ -1,59 +1,47 @@
-import { useEffect, useState } from "react";
-import AuthForm from "./components/authForm";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./pages/home";
 import Matchmaking from "./pages/matchmaking";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import GameRoom from "./components/gameRoom";
+import { useState, useEffect } from "react";
 import { supabase } from "./services/supabaseClient";
-import { getProfile } from "./services/profile";
-import { useSocketRegistration } from "./hook/useSocketRegistration"; // 👈 Ajout du hook global
-import { socket } from "./socket"; // en haut
-import PopupMatchmaking from "./pages/popupMatchmaking";
+import AuthForm from "./components/authForm";
+import './index.css';
 
 function App() {
   const [userProfile, setUserProfile] = useState<any>(null);
 
-  <AuthForm onLogin={(profile) => {
-    if (!socket.connected) socket.connect();
-    setUserProfile(profile);
-  }} />
-
   useEffect(() => {
-    const init = async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session) {
-        const profile = await getProfile();
-        setUserProfile(profile);
+    const getUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+        if (!error) setUserProfile(data);
       }
     };
-    init();
+
+    getUser();
   }, []);
 
-  // 🔌 Enregistrement WebSocket centralisé
-  useSocketRegistration(userProfile);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
     setUserProfile(null);
   };
 
   if (!userProfile) {
-    return (
-      <div>
-        <h1>Chifoumi</h1>
-        <AuthForm onLogin={(profile) => setUserProfile(profile)} />
-      </div>
-    );
+    return <AuthForm onLogin={setUserProfile} />;
   }
 
   return (
-    <BrowserRouter>
-      <h1>Chifoumi</h1>
+    <Router>
       <Routes>
         <Route path="/" element={<Home userProfile={userProfile} onLogout={handleLogout} />} />
         <Route path="/matchmaking" element={<Matchmaking userProfile={userProfile} />} />
-        <Route path="/popup-matchmaking" element={<PopupMatchmaking />} />
+        <Route path="/game/:roomId" element={<GameRoom userProfile={userProfile} />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
 

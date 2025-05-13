@@ -1,120 +1,103 @@
-import { useState, useEffect, useRef } from "react";
-import { supabase } from "../services/supabaseClient";
-import Profile from "../components/profile";
-import { socket } from "../socket";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSocketRegistration } from "../hook/useSocketRegistration";
+import { socket, connectSocket } from "../socket";
+import { supabase } from "../services/supabaseClient";
 
-export default function Home({
-  userProfile,
-  onLogout,
-}: {
-  userProfile: any;
-  onLogout: () => void;
-}) {
-  const [showProfile, setShowProfile] = useState(false);
-  const [activeView, setActiveView] = useState<"home" | "users">("home");
+interface UserProfile {
+  id: string;
+  pseudo: string;
+  handColor: string;
+}
+
+interface ConnectedUser {
+  userId: string;
+  pseudo: string;
+  handColor: string;
+}
+
+export default function Home({ userProfile, onLogout }: { userProfile: UserProfile, onLogout: () => void }) {
+  const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([]);
+  const [showUsers, setShowUsers] = useState(false);
   const navigate = useNavigate();
 
-  const hasRegisteredRef = useRef(false);
-
   useEffect(() => {
-    function tryRegister() {
-      if (userProfile && socket.connected && !hasRegisteredRef.current) {
-        console.log("📤 Envoi de registerUser", userProfile);
-        socket.emit("registerUser", {
-          userId: userProfile.id,
-          pseudo: userProfile.pseudo,
-          handColor: userProfile.hand_color,
-        });
-        hasRegisteredRef.current = true;
-      }
-    }
+    // Connexion socket avec token Supabase
+    connectSocket();
 
-    tryRegister();
-    socket.on("connect", tryRegister);
+    socket.on("connect", () => {
+      console.log("✅ Socket connectée au serveur");
+
+      // Enregistrer l'utilisateur côté serveur
+      socket.emit("registerUser", {
+        userId: userProfile.id,
+        pseudo: userProfile.pseudo,
+        handColor: userProfile.handColor,
+      });
+    });
+
+    socket.on("registerSuccess", () => {
+      console.log("📝 Utilisateur enregistré sur le serveur");
+    });
+
+    socket.on("usersUpdate", (users: ConnectedUser[]) => {
+      setConnectedUsers(users);
+    });
+
+    socket.on("forceDisconnect", ({ reason }) => {
+      console.warn("🚫 Déconnecté :", reason);
+      socket.disconnect();
+    });
 
     return () => {
-      socket.off("connect", tryRegister);
+      socket.off("connect");
+      socket.off("registerSuccess");
+      socket.off("usersUpdate");
+      socket.off("forceDisconnect");
     };
   }, [userProfile]);
 
-  const { users, error } = useSocketRegistration(userProfile);
-
   const handleLogout = async () => {
-    socket.disconnect(); // ❌ Déconnecte proprement le socket
     await supabase.auth.signOut();
+    socket.disconnect();
     onLogout();
   };
 
-  const handleProfileUpdate = (updatedProfile: any) => {
-    if (!userProfile) return;
-
-    userProfile.pseudo = updatedProfile.pseudo;
-    userProfile.hand_color = updatedProfile.hand_color;
-    // Pas besoin de socket.emit ici : le hook le gère à la reconnexion
+  const handleEditProfile = () => {
+    navigate("/"); // On revient sur AuthForm avec session active → édition
   };
 
-  if (!userProfile) {
-    return <p>Chargement du profil...</p>;
-  }
+  const handleMatchmaking = () => {
+    navigate("/matchmaking");
+  };
 
   return (
-    <div>
-      <h2>
-        👋 Bienvenue, {userProfile.pseudo} {userProfile.hand_color}
-      </h2>
+    <div style={{ padding: "2rem" }}>
+      <h1>Bienvenue, {userProfile.pseudo} 👋</h1>
+      <p>Ta couleur de main : <span style={{ color: userProfile.handColor }}>{userProfile.handColor}</span></p>
 
-      <button onClick={() => setShowProfile(true)}>Mon Profil</button>
-      <button
-        onClick={() =>
-          setActiveView(activeView === "home" ? "users" : "home")
-        }
-      >
-        {activeView === "home"
-          ? "Voir les utilisateurs"
-          : "Retour à l'accueil"}
-      </button>
-      <button onClick={() => {
-        const width = 600;
-        const height = 800;
-        const left = (window.innerWidth - width) / 2;
-        const top = (window.innerHeight - height) / 2;
+      <div style={{ marginTop: "1rem" }}>
+        <button onClick={handleEditProfile}>✏️ Modifier mon profil</button>
+        <button onClick={handleLogout} style={{ marginLeft: "1rem" }}>🚪 Se déconnecter</button>
+      </div>
 
-        window.open(
-          "/popup-matchmaking", // Assure-toi que c'est le bon chemin dans ton routeur
-          "MatchmakingPopup",
-          `width=${width},height=${height},left=${left},top=${top}`
-        );
-      }}>
-        🎮 Rejoindre le matchmaking
-      </button>
-      <button onClick={handleLogout}>Se déconnecter</button>
+      <div style={{ marginTop: "2rem" }}>
+        <button onClick={handleMatchmaking}>🎮 Entrer dans le matchmaking</button>
+      </div>
 
-      {showProfile && (
-        <Profile
-          userProfile={userProfile}
-          onClose={() => setShowProfile(false)}
-          onUpdate={handleProfileUpdate}
-        />
-      )}
-
-      {activeView === "users" && (
-        <>
-          <h3>Utilisateurs connectés :</h3>
-          <ul>
-            {users.map((user, idx) => (
-              <li key={idx}>
-                {user.pseudo} ({user.handColor})
+      <div style={{ marginTop: "2rem" }}>
+        <button onClick={() => setShowUsers(!showUsers)}>
+          {showUsers ? "👁️ Masquer les utilisateurs" : "👥 Voir les utilisateurs connectés"}
+        </button>
+        {showUsers && (
+          <ul style={{ marginTop: "1rem" }}>
+            {connectedUsers.map(user => (
+              <li key={user.userId}>
+                {user.pseudo} — <span style={{ color: user.handColor }}>{user.handColor}</span>
               </li>
             ))}
           </ul>
-        </>
-      )}
-
-      {error && (
-        <p style={{ color: "red" }}>🚫 Erreur d'enregistrement : {error}</p>
-      )}
+        )}
+      </div>
     </div>
   );
 }
