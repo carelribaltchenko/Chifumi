@@ -1,35 +1,47 @@
-import { useEffect, useState } from "react";
-import AuthForm from "./components/authForm";
-import Home from "./components/home";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Home from "./pages/home";
+import Matchmaking from "./pages/matchmaking";
+import GameRoom from "./components/gameRoom";
+import { useState, useEffect } from "react";
 import { supabase } from "./services/supabaseClient";
-import { getProfile } from "./services/profile";
+import AuthForm from "./components/authForm";
+import './index.css';
 
 function App() {
   const [userProfile, setUserProfile] = useState<any>(null);
 
   useEffect(() => {
-    const init = async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session) {
-        const profile = await getProfile();
-        setUserProfile(profile);
+    const getUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+        if (!error) setUserProfile(data);
       }
     };
-    init();
+
+    getUser();
   }, []);
 
+  const handleLogout = () => {
+    setUserProfile(null);
+  };
+
+  if (!userProfile) {
+    return <AuthForm onLogin={setUserProfile} />;
+  }
+
   return (
-    <div>
-      <h1>Chifoumi</h1>
-      {userProfile ? (
-        <Home
-        userProfile={userProfile}
-        onLogout={() => setUserProfile(null)}
-      />
-      ) : (
-        <AuthForm onLogin={(profile) => setUserProfile(profile)} />
-      )}
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home userProfile={userProfile} onLogout={handleLogout} />} />
+        <Route path="/matchmaking" element={<Matchmaking userProfile={userProfile} />} />
+        <Route path="/game/:roomId" element={<GameRoom userProfile={userProfile} />} />
+      </Routes>
+    </Router>
   );
 }
 

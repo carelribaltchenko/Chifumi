@@ -66,3 +66,54 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+.matchmaking-container {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: #4a3535cc;
+  border-radius: 12px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+.chat-box {
+  margin-top: 1rem;
+  background-color: #f4f4f4;
+  padding: 1rem;
+  border-radius: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.messages {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem 0;
+  text-align: left;
+}
+
+.messages li {
+  margin-bottom: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background-color: #000000;
+  border-radius: 6px;
+}
+
+.input-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input-group input {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 1rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.input-group button {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+}
