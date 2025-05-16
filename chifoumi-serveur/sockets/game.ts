@@ -1,10 +1,17 @@
+// setupGameSockets.ts
 import { Server } from "socket.io";
 
 interface ConnectedUser {
   userId: string;
   pseudo: string;
-  handColor: string;
+  handColor: string; // Ex: ✋🏾
 }
+
+const gameStates: Record<string, {
+  players: string[],
+  choices: Record<string, string>,
+  scores: Record<string, number>
+}> = {};
 
 const connectedUsers: Record<string, ConnectedUser> = {};
 let waitingPlayer: { socketId: string; userId: string } | null = null;
@@ -12,16 +19,11 @@ let waitingPlayer: { socketId: string; userId: string } | null = null;
 export function setupGameSockets(io: Server) {
   io.use((socket, next) => {
     const token = socket.handshake.auth.token;
-    if (!token) {
-      return next(new Error("Authentication error"));
-    }
-    // Vous pouvez valider le token ici, par exemple via un service externe
+    if (!token) return next(new Error("Authentication error"));
     next();
   });
 
   io.on("connection", (socket) => {
-    console.log("🔌 Nouvelle connexion:", socket.id);
-
     socket.on("registerUser", ({ userId, pseudo, handColor }) => {
       if (connectedUsers[socket.id]?.userId === userId) {
         socket.emit("registerSuccess");
@@ -29,9 +31,7 @@ export function setupGameSockets(io: Server) {
       }
 
       cleanPreviousConnections(userId, socket.id);
-      
       connectedUsers[socket.id] = { userId, pseudo, handColor };
-      console.log(`✅ ${pseudo} enregistré (${socket.id})`);
       socket.emit("registerSuccess");
       updateUserList();
     });
@@ -39,76 +39,100 @@ export function setupGameSockets(io: Server) {
     socket.on("joinMatchmaking", ({ userId }) => {
       const user = connectedUsers[socket.id];
       if (!user) return;
-    
-      console.log(`🎮 ${user.pseudo} cherche un match`);
-    
-      // Vérifie si ce joueur est déjà en attente
-      if (waitingPlayer?.userId === userId) {
-        console.log("⚠️ Utilisateur déjà en matchmaking");
-        return;
-      }
-    
-      // Vérifie si ce joueur est déjà dans une room
+      if (waitingPlayer?.userId === userId) return;
+
       const rooms = Array.from(socket.rooms);
       const isInRoom = rooms.some((room) => room.startsWith("room-"));
-      if (isInRoom) {
-        console.log("⚠️ Utilisateur déjà dans une room");
-        return;
-      }
-    
+      if (isInRoom) return;
+
       if (!waitingPlayer) {
         waitingPlayer = { socketId: socket.id, userId };
         return;
       }
-    
-      if (waitingPlayer.userId === userId) {
-        console.log("🚫 Tentative de match avec soi-même");
-        return;
-      }
-    
+
+      if (waitingPlayer.userId === userId) return;
+
       const roomName = `room-${Date.now()}`;
       socket.join(roomName);
       io.to(waitingPlayer.socketId).socketsJoin(roomName);
-      
       io.to(roomName).emit("matchFound", { room: roomName });
-      console.log(`✨ Match créé entre ${user.pseudo} et ${connectedUsers[waitingPlayer.socketId]?.pseudo}`);
-      
+
+      gameStates[roomName] = {
+        players: [socket.id, waitingPlayer.socketId],
+        choices: {},
+        scores: {
+          [socket.id]: 0,
+          [waitingPlayer.socketId]: 0
+        }
+      };
+
       waitingPlayer = null;
     });
 
+    socket.on("leaveMatchmaking", () => {
+      if (waitingPlayer?.socketId === socket.id) {
+        console.log(`⛔ ${connectedUsers[socket.id]?.pseudo} a quitté le matchmaking`);
+        waitingPlayer = null;
+      }
+    });
+
+    socket.on("playerChoice", ({ roomId, choice }) => {
+      const game = gameStates[roomId];
+      if (!game) return;
+
+      game.choices[socket.id] = choice;
+      socket.emit("choiceReceived", choice);
+
+      if (Object.keys(game.choices).length === 2) {
+        const [p1, p2] = game.players;
+        const c1 = game.choices[p1];
+        const c2 = game.choices[p2];
+
+        const result = determineWinner(c1, c2);
+        if (result === 1) game.scores[p1]++;
+        else if (result === 2) game.scores[p2]++;
+
+        io.to(roomId).emit("roundResult", {
+          choices: { [p1]: c1, [p2]: c2 },
+          scores: game.scores,
+          pseudos: {
+            [p1]: connectedUsers[p1]?.pseudo || "Joueur 1",
+            [p2]: connectedUsers[p2]?.pseudo || "Joueur 2",
+          },
+          handColors: {
+            [p1]: extractModifier(connectedUsers[p1]?.handColor) || "",
+            [p2]: extractModifier(connectedUsers[p2]?.handColor) || "",
+          }
+        });
+
+        game.choices = {};
+      }
+    });
+
     socket.on("message", ({ roomId, message }) => {
-      socket.to(roomId).emit("message", `${connectedUsers[socket.id]?.pseudo}: ${message}`);
+      const pseudo = connectedUsers[socket.id]?.pseudo || "Inconnu";
+      socket.to(roomId).emit("message", `${pseudo}: ${message}`);
     });
 
-    socket.on("leaveGame", () => {
-      cleanupSocket(socket.id);
-    });
-
-    socket.on("disconnect", () => {
-      cleanupSocket(socket.id);
-    });
+    socket.on("leaveGame", () => cleanupSocket(socket.id));
+    socket.on("disconnect", () => cleanupSocket(socket.id));
 
     function cleanupSocket(socketId: string) {
       const user = connectedUsers[socketId];
       if (!user) return;
-    
+
       if (waitingPlayer?.socketId === socketId) {
         waitingPlayer = null;
       }
-    
-      // Trouver la room à laquelle ce joueur est connecté
+
       const socketInstance = io.sockets.sockets.get(socketId);
       const rooms = socketInstance?.rooms;
-    
       if (rooms) {
         rooms.forEach((room) => {
           if (room.startsWith("room-")) {
-            // Informer les autres dans la room
             socket.to(room).emit("opponentLeft", { message: "L'adversaire a quitté la partie." });
-    
-            // Déconnecter les autres aussi si nécessaire
-            const clientsInRoom = Array.from(io.sockets.adapter.rooms.get(room) || []);
-            clientsInRoom.forEach((clientId) => {
+            const clients = Array.from(io.sockets.adapter.rooms.get(room) || []);
+            clients.forEach((clientId) => {
               if (clientId !== socketId) {
                 io.sockets.sockets.get(clientId)?.leave(room);
               }
@@ -116,16 +140,22 @@ export function setupGameSockets(io: Server) {
           }
         });
       }
-    
-      console.log(`🚪 ${user.pseudo} déconnecté`);
+
       delete connectedUsers[socketId];
       updateUserList();
+    }
+
+    function determineWinner(c1: string, c2: string) {
+      if (c1 === c2) return 0;
+      if ((c1 === "pierre" && c2 === "ciseaux") ||
+          (c1 === "feuille" && c2 === "pierre") ||
+          (c1 === "ciseaux" && c2 === "feuille")) return 1;
+      return 2;
     }
 
     function cleanPreviousConnections(userId: string, currentSocketId: string) {
       Object.entries(connectedUsers).forEach(([socketId, user]) => {
         if (user.userId === userId && socketId !== currentSocketId) {
-          console.log(`♻️ Nettoyage ancienne connexion ${socketId}`);
           io.to(socketId).emit("forceDisconnect", {
             reason: "Nouvelle connexion détectée"
           });
@@ -142,12 +172,15 @@ export function setupGameSockets(io: Server) {
     socket.on("leaveRoom", ({ roomId }) => {
       const user = connectedUsers[socket.id];
       if (!user) return;
-    
-      console.log(`🚪 ${user.pseudo} quitte la room ${roomId}`);
-    
       socket.leave(roomId);
       socket.to(roomId).emit("opponentLeft", { message: `${user.pseudo} a quitté la partie.` });
     });
-
   });
+}
+
+function extractModifier(emoji: string = "") {
+  // Retourne uniquement le modificateur (ex: 🏾)
+  const skinToneRegex = /[\u{1F3FB}-\u{1F3FF}]/u;
+  const match = emoji.match(skinToneRegex);
+  return match ? match[0] : "";
 }

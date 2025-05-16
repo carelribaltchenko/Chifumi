@@ -1,18 +1,17 @@
-import { useState } from "react";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../services/supabaseClient";
 import { signUp, signIn } from "../services/auth";
 import { getProfile } from "../services/profile";
 
-const handOptions = ["🖐🏻", "🖐🏼", "🖐🏽", "🖐🏾", "🖐🏿"];
+// Désormais on stocke uniquement le modificateur
+const skinToneModifiers = ["🏻", "🏼", "🏽", "🏾", "🏿"];
 
 export default function AuthForm({ onLogin }: { onLogin: (profile: any) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pseudo, setPseudo] = useState("");
-  const [handColor, setHandColor] = useState("");
+  const [handColor, setHandColor] = useState(""); // Modificateur uniquement
   const [isLogin, setIsLogin] = useState(true);
-
   const [userProfile, setUserProfile] = useState<any>(null);
 
   useEffect(() => {
@@ -21,39 +20,18 @@ export default function AuthForm({ onLogin }: { onLogin: (profile: any) => void 
       if (sessionData.session) {
         const profile = await getProfile();
         setUserProfile(profile);
-        setEmail(sessionData.session.user.email ?? ""); // pour affichage
+        setEmail(sessionData.session.user.email ?? "");
       }
     };
     loadSession();
   }, []);
-  
 
-  const handleLogin = async () => {
-    const { error } = await signIn(email, password);
-    if (error) alert(error.message);
-    else {
-      const profile = await getProfile();
-      setUserProfile(profile);
-      onLogin(profile); // ← ICI
-    }
-  };
-
-  const handleSignup = async () => {
-    const { error } = await signUp(email, password, pseudo, handColor);
-    if (error) alert("Erreur à l'inscription : " + error.message);
-    else {
-      const profile = await getProfile();
-      setUserProfile(profile);
-      onLogin(profile); // ← ICI AUSSI
-    }
-  };
-  
   const handleSubmit = async () => {
     if (!email || !password || (!isLogin && (!pseudo || !handColor))) {
       alert("Remplis tous les champs !");
       return;
     }
-  
+
     let error;
     if (isLogin) {
       const res = await signIn(email, password);
@@ -62,13 +40,13 @@ export default function AuthForm({ onLogin }: { onLogin: (profile: any) => void 
       const res = await signUp(email, password, pseudo, handColor);
       error = res.error;
     }
-  
+
     if (error) {
       alert("Erreur : " + error.message);
     } else {
       const profile = await getProfile();
       setUserProfile(profile);
-      onLogin(profile); // ← Ajoute ça ici !
+      onLogin(profile);
     }
   };
 
@@ -77,7 +55,7 @@ export default function AuthForm({ onLogin }: { onLogin: (profile: any) => void 
       <div>
         <h2>Bienvenue, {userProfile.pseudo} 👋</h2>
         <p><strong>Email :</strong> {email}</p>
-        <p><strong>Main :</strong> {userProfile.hand_color}</p>
+        <p><strong>Main :</strong> ✋{userProfile.hand_color}</p>
       </div>
     );
   }
@@ -112,20 +90,20 @@ export default function AuthForm({ onLogin }: { onLogin: (profile: any) => void 
             style={{ marginBottom: 10, padding: 8 }}
           />
           <div style={{ display: "flex", gap: 10, margin: "10px 0" }}>
-            {handOptions.map((emoji) => (
+            {skinToneModifiers.map((modifier) => (
               <button
-                key={emoji}
-                onClick={() => setHandColor(emoji)}
+                key={modifier}
+                onClick={() => setHandColor(modifier)}
                 style={{
                   fontSize: 24,
                   padding: 10,
                   borderRadius: "50%",
-                  border: emoji === handColor ? "2px solid #000" : "1px solid #ccc",
+                  border: modifier === handColor ? "2px solid #000" : "1px solid #ccc",
                   background: "white",
                   cursor: "pointer",
                 }}
               >
-                {emoji}
+                🖐{modifier}
               </button>
             ))}
           </div>

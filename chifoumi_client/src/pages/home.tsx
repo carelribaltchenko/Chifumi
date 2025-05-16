@@ -63,7 +63,7 @@ export default function Home({ userProfile, onLogout }: { userProfile: UserProfi
   };
 
   const handleEditProfile = () => {
-    navigate("/"); // On revient sur AuthForm avec session active → édition
+    navigate("/profile"); // On revient sur AuthForm avec session active → édition
   };
 
   const handleMatchmaking = () => {

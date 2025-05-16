@@ -8,13 +8,13 @@ const app = express();
 const httpServer = createServer(app);
 
 app.use(cors({
-  origin: "http://localhost:5174", // ✅ mets bien l’URL de ton front ici
+  origin: "http://localhost:5173", // ✅ mets bien l’URL de ton front ici
   credentials: true
 }));
 
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5174", // ✅ autoriser l'origine
+    origin: "http://localhost:5173", // ✅ autoriser l'origine
     methods: ["GET", "POST"],
     credentials: true
   }
