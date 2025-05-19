@@ -11,22 +11,26 @@ const game_1 = require("./sockets/game"); // Assure-toi que le fichier game.ts e
 const path_1 = __importDefault(require("path"));
 const app = (0, express_1.default)();
 const httpServer = (0, http_1.createServer)(app);
+// CORS autorisé depuis le frontend, en développement c'était : http://localhost:5173
 app.use((0, cors_1.default)({
-    origin: "http://localhost:5173",
+    origin: true,
     credentials: true
 }));
-app.use(express_1.default.static(path_1.default.join(__dirname, "./../dist")));
+// Dossier où est copié le build frontend (via build-all.sh)
+const clientDistPath = path_1.default.join(__dirname, "public");
+app.use(express_1.default.static(clientDistPath));
 app.get("*", (req, res) => {
-    res.sendFile(path_1.default.join(__dirname, "./../dist/index.html"));
+    res.sendFile(path_1.default.join(clientDistPath, "index.html"));
 });
 const io = new socket_io_1.Server(httpServer, {
     cors: {
-        origin: "http://localhost:5173",
+        origin: true,
         methods: ["GET", "POST"],
         credentials: true
     }
 });
 (0, game_1.setupGameSockets)(io);
-httpServer.listen(3001, () => {
-    console.log("🚀 Serveur Socket.io lancé sur http://localhost:3001");
+const PORT = process.env.PORT || 3001;
+httpServer.listen(PORT, () => {
+    console.log(`✅ Server listening on port ${PORT}`);
 });
