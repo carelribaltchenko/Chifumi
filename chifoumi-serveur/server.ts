@@ -2,26 +2,29 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import express from "express";
 import cors from "cors";
-import { setupGameSockets } from "./sockets/game"; // Assure-toi que le fichier game.ts est bien dans sockets/
 import path from "path";
-
+import { setupGameSockets } from "./sockets/game";
 
 const app = express();
 const httpServer = createServer(app);
 
+// Autorise toutes les origines (Render)
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: true,
   credentials: true
 }));
 
-app.use(express.static(path.join(__dirname, "./../public")));
+// Sert les fichiers du frontend compilé
+const clientDistPath = path.join(__dirname, "../chifoumi_client/dist");
+app.use(express.static(clientDistPath));
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "./../public/index.html"));
+  res.sendFile(path.join(clientDistPath, "index.html"));
 });
 
+// WebSocket
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: true,
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -29,6 +32,8 @@ const io = new Server(httpServer, {
 
 setupGameSockets(io);
 
-httpServer.listen(3001, () => {
-  console.log("🚀 Serveur Socket.io lancé sur http://localhost:3001");
+// Port Render ou 3001 en local
+const PORT = process.env.PORT || 3001;
+httpServer.listen(PORT, () => {
+  console.log(`✅ Server listening on port ${PORT}`);
 });
