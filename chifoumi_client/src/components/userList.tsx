@@ -1,5 +1,5 @@
 import { SetStateAction, useEffect, useState } from 'react';
-import socket from '../socket';
+import {socket} from '../socket';
 
 interface ConnectedUser {
   userId: string;

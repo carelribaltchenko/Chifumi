@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { supabase } from "../services/supabaseClient";
 import { updateProfile } from "../services/profile";
-
 export default function Profile({ userProfile, onClose, onUpdate }: { userProfile: any, onClose: () => void, onUpdate: (profile: any) => void }) {
   const [pseudo, setPseudo] = useState(userProfile.pseudo || "");
   const [handColor, setHandColor] = useState(userProfile.hand_color || "");
