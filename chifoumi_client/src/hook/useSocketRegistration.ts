@@ -7,7 +7,7 @@ interface ConnectedUser {
   handColor: string;
 }
 
-export function useSocketRegistration(userProfile: any) {
+export function useSocketRegistration(_userProfile: any) {
   const [users, setUsers] = useState<ConnectedUser[]>([]);
   const [error, setError] = useState<string | null>(null);
 

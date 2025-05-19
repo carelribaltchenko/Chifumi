@@ -2,19 +2,26 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import express from "express";
 import cors from "cors";
-import { setupGameSockets } from "./sockets/game"; // ton module
+import { setupGameSockets } from "./sockets/game"; // Assure-toi que le fichier game.ts est bien dans sockets/
+import path from "path";
+
 
 const app = express();
 const httpServer = createServer(app);
 
 app.use(cors({
-  origin: "http://localhost:5173", // ✅ mets bien l’URL de ton front ici
+  origin: "http://localhost:5173",
   credentials: true
 }));
 
+app.use(express.static(path.join(__dirname, "./../public")));
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "./../public/index.html"));
+});
+
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173", // ✅ autoriser l'origine
+    origin: "http://localhost:5173",
     methods: ["GET", "POST"],
     credentials: true
   }

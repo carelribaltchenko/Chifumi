@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./pages/home";
 import Matchmaking from "./pages/matchmaking";
-import GameRoom from "./components/gameRoom";
+import GameRoom from "./pages/gameRoom";
 import ProfilePage from "./pages/profilePage";
 import { useState, useEffect } from "react";
 import { supabase } from "./services/supabaseClient";
