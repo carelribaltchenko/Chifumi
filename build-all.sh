@@ -2,14 +2,14 @@
 
 # Build frontend
 echo "🛠️ Building frontend..."
-cd chifoumi_client
+cd chifoumi-client
 npm install
 npm run build
 cd ..
 
 # Build backend
 echo "🛠️ Building backend..."
-cd chifumi-serveur
+cd chifoumi-serveur
 npm install
 npx tsc
 
