@@ -17,4 +17,4 @@ npx tsc
 echo "📦 Copying frontend build to server dist/public..."
 rm -rf dist/public
 mkdir -p dist/public
-cp -r ../chifoumi_client/dist/* dist/public/
+cp -r ../chifoumi-client/dist/* dist/public/
