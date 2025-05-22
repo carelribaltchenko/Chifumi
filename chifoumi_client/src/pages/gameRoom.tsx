@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { socket } from "../socket";
+import { supabase } from "../services/supabaseClient";
 
 // Dictionnaire des mains selon la couleur complète
 const handsByColor: Record<string, Record<string, string>> = {
@@ -22,18 +23,15 @@ export default function GameRoom({ userProfile }: any) {
   const [scores, setScores] = useState<Record<string, number>>({});
   const [pseudos, setPseudos] = useState<Record<string, string>>({});
   const [handColors, setHandColors] = useState<Record<string, string>>({});
-
-  const opponentId = Object.keys(pseudos).find((id) => id !== socket.id);
+  const [opponentId, setOpponentId] = useState<string | null>(null);
+  const [friendStatus, setFriendStatus] = useState<string>("");
 
   /** Transforme 🏾 => ✋🏾 pour accéder à handsByColor */
   const buildFullEmoji = (mod: string | undefined): string => {
     return handsByColor[`✋${mod || "🏻"}`] ? `✋${mod}` : "✋🏻";
   };
 
-  const getEmojiForChoice = (
-    choice: string | null,
-    handModifier: string | undefined
-  ) => {
+  const getEmojiForChoice = (choice: string | null, handModifier: string | undefined) => {
     if (!choice) return "❓";
     const fullEmoji = buildFullEmoji(handModifier);
     return handsByColor[fullEmoji]?.[choice] || "❓";
@@ -61,20 +59,44 @@ export default function GameRoom({ userProfile }: any) {
     socket.emit("playerChoice", { roomId, choice });
   };
 
+  const sendFriendRequest = async () => {
+    if (!opponentId) return;
+
+    const { data, error } = await supabase
+      .from("friends")
+      .insert([
+        {
+          user_id: userProfile.id,
+          friend_id: opponentId,
+          status: "pending",
+        },
+      ]);
+
+    if (error) {
+      console.error("Erreur d'ajout d'ami :", error.message);
+      setFriendStatus("Erreur lors de l'ajout.");
+    } else {
+      setFriendStatus("Demande d'ami envoyée !");
+    }
+  };
+
   useEffect(() => {
     socket.on("choiceReceived", (choice: string) => {
       setMyChoice(choice);
-      setOpponentChoice(null); // Reset l’affichage adverse tant qu’il n’a pas joué
+      setOpponentChoice(null);
     });
 
     socket.on("roundResult", ({ choices, scores, pseudos, handColors }) => {
       if (!choices || !scores || !pseudos || !handColors) return;
 
-      const opponentId = Object.keys(choices).find((id) => id !== socket.id);
+      const opponent = Object.keys(choices).find((id) => id !== socket.id);
       if (socket.id) {
         setMyChoice(choices[socket.id]);
       }
-      if (opponentId) setOpponentChoice(choices[opponentId]);
+      if (opponent) {
+        setOpponentChoice(choices[opponent]);
+        setOpponentId(opponent); // Stocker l'opponentId ici
+      }
 
       setScores(scores);
       setPseudos(pseudos);
@@ -163,6 +185,13 @@ export default function GameRoom({ userProfile }: any) {
           ))}
         </ul>
       </div>
+
+      {opponentId && (
+        <div style={{ marginTop: "1rem" }}>
+          <button onClick={sendFriendRequest}>➕ Ajouter comme ami</button>
+          {friendStatus && <p>{friendStatus}</p>}
+        </div>
+      )}
 
       <button
         onClick={quitGameOrMatchmaking}

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { socket, connectSocket } from "../socket";
 import { supabase } from "../services/supabaseClient";
+import AddFriend from "../components/addFriend"; // 👈
 
 interface UserProfile {
   id: string;
@@ -21,13 +22,11 @@ export default function Home({ userProfile, onLogout }: { userProfile: UserProfi
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Connexion socket avec token Supabase
     connectSocket();
 
     socket.on("connect", () => {
       console.log("✅ Socket connectée au serveur");
 
-      // Enregistrer l'utilisateur côté serveur
       socket.emit("registerUser", {
         userId: userProfile.id,
         pseudo: userProfile.pseudo,
@@ -63,7 +62,7 @@ export default function Home({ userProfile, onLogout }: { userProfile: UserProfi
   };
 
   const handleEditProfile = () => {
-    navigate("/profile"); // On revient sur AuthForm avec session active → édition
+    navigate("/profile");
   };
 
   const handleMatchmaking = () => {
@@ -82,6 +81,12 @@ export default function Home({ userProfile, onLogout }: { userProfile: UserProfi
 
       <div style={{ marginTop: "2rem" }}>
         <button onClick={handleMatchmaking}>🎮 Entrer dans le matchmaking</button>
+      </div>
+
+      {/* ✅ Formulaire pour ajouter un ami */}
+      <div style={{ marginTop: "2rem" }}>
+        <h2>Ajouter un ami</h2>
+        <AddFriend userProfile={userProfile} />
       </div>
 
       <div style={{ marginTop: "2rem" }}>
