@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getProfile, updateProfile } from "./../services/profile";
+import { connectSocket, socket } from "../socket";
 
 const handOptions = ["🖐🏻", "🖐🏼", "🖐🏽", "🖐🏾", "🖐🏿"];
 
@@ -25,6 +26,21 @@ export default function ProfilePage({ onProfileUpdated }: { onProfileUpdated: ()
     } else {
       alert("✅ Profil mis à jour !");
       onProfileUpdated(); // Rafraîchir le profil dans App.tsx
+  
+      // Vérifier si le socket est connecté
+      if (!socket.connected) {
+        console.warn("🔌 Socket déconnectée, tentative de reconnexion...");
+        await connectSocket(); // Reconnecter le socket si nécessaire
+      }
+  
+      // Réenregistrer l'utilisateur sur le serveur
+      const profile = await getProfile();
+      socket.emit("registerUser", {
+        userId: profile.id,
+        pseudo: profile.pseudo,
+        handColor: profile.hand_color,
+      });
+  
       navigate("/"); // Rediriger vers la page d'accueil
     }
   };
