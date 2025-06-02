@@ -1,10 +1,16 @@
 // setupGameSockets.ts
 import { Server } from "socket.io";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 interface ConnectedUser {
   userId: string;
   pseudo: string;
-  handColor: string; // Ex: ✋🏾
+  handColor: string;
 }
 
 const gameStates: Record<string, {
@@ -71,7 +77,6 @@ export function setupGameSockets(io: Server) {
 
     socket.on("leaveMatchmaking", () => {
       if (waitingPlayer?.socketId === socket.id) {
-        console.log(`⛔ ${connectedUsers[socket.id]?.pseudo} a quitté le matchmaking`);
         waitingPlayer = null;
       }
     });
@@ -117,69 +122,120 @@ export function setupGameSockets(io: Server) {
     socket.on("leaveGame", () => cleanupSocket(socket.id));
     socket.on("disconnect", () => cleanupSocket(socket.id));
 
-    function cleanupSocket(socketId: string) {
-      const user = connectedUsers[socketId];
-      if (!user) return;
-
-      if (waitingPlayer?.socketId === socketId) {
-        waitingPlayer = null;
-      }
-
-      const socketInstance = io.sockets.sockets.get(socketId);
-      const rooms = socketInstance?.rooms;
-      if (rooms) {
-        rooms.forEach((room) => {
-          if (room.startsWith("room-")) {
-            socket.to(room).emit("opponentLeft", { message: "L'adversaire a quitté la partie." });
-            const clients = Array.from(io.sockets.adapter.rooms.get(room) || []);
-            clients.forEach((clientId) => {
-              if (clientId !== socketId) {
-                io.sockets.sockets.get(clientId)?.leave(room);
-              }
-            });
-          }
-        });
-      }
-
-      delete connectedUsers[socketId];
-      updateUserList();
-    }
-
-    function determineWinner(c1: string, c2: string) {
-      if (c1 === c2) return 0;
-      if ((c1 === "pierre" && c2 === "ciseaux") ||
-          (c1 === "feuille" && c2 === "pierre") ||
-          (c1 === "ciseaux" && c2 === "feuille")) return 1;
-      return 2;
-    }
-
-    function cleanPreviousConnections(userId: string, currentSocketId: string) {
-      Object.entries(connectedUsers).forEach(([socketId, user]) => {
-        if (user.userId === userId && socketId !== currentSocketId) {
-          io.to(socketId).emit("forceDisconnect", {
-            reason: "Nouvelle connexion détectée"
-          });
-          io.sockets.sockets.get(socketId)?.disconnect();
-          delete connectedUsers[socketId];
-        }
-      });
-    }
-
-    function updateUserList() {
-      io.emit("usersUpdate", Object.values(connectedUsers));
-    }
-
     socket.on("leaveRoom", ({ roomId }) => {
       const user = connectedUsers[socket.id];
       if (!user) return;
       socket.leave(roomId);
       socket.to(roomId).emit("opponentLeft", { message: `${user.pseudo} a quitté la partie.` });
     });
+
+    // 👉 GESTION DES DEMANDES D'AMIS
+    socket.on("sendFriendRequest", async ({ targetId }) => {
+      const sender = connectedUsers[socket.id];
+      if (!sender) return;
+
+      if (sender.userId === targetId) {
+        socket.emit("friendRequestError", "❌ Tu ne peux pas t'ajouter toi-même !");
+        return;
+      }
+
+      const { data: existing, error: checkError } = await supabase
+        .from("friends")
+        .select("*")
+        .or(`and(user_id.eq.${sender.userId},friend_id.eq.${targetId}),and(user_id.eq.${targetId},friend_id.eq.${sender.userId})`);
+
+      if (checkError) {
+        socket.emit("friendRequestError", "❌ Erreur lors de la vérification.");
+        return;
+      }
+
+      if (existing && existing.length > 0) {
+        socket.emit("friendRequestError", "⚠️ Une relation existe déjà.");
+        return;
+      }
+
+      const { error } = await supabase.from("friends").insert([
+        {
+          user_id: sender.userId,
+          friend_id: targetId,
+          status: "pending",
+        },
+      ]);
+
+      if (error) {
+        socket.emit("friendRequestError", "❌ Erreur lors de l'envoi.");
+      } else {
+        socket.emit("friendRequestSent", "✅ Demande envoyée !");
+        // Notifie la cible si elle est connectée
+        const targetSocket = Object.entries(connectedUsers).find(
+          ([, user]) => user.userId === targetId
+        )?.[0];
+        if (targetSocket) {
+          io.to(targetSocket).emit("newFriendRequest", {
+            fromId: sender.userId,
+            pseudo: sender.pseudo,
+          });
+        }
+      }
+    });
   });
+
+  function cleanupSocket(socketId: string) {
+    const user = connectedUsers[socketId];
+    if (!user) return;
+
+    if (waitingPlayer?.socketId === socketId) {
+      waitingPlayer = null;
+    }
+
+    const socketInstance = io.sockets.sockets.get(socketId);
+    const rooms = socketInstance?.rooms;
+    if (rooms) {
+      rooms.forEach((room) => {
+        if (room.startsWith("room-")) {
+          io.to(room).emit("opponentLeft", { message: "L'adversaire a quitté la partie." });
+          const clients = Array.from(io.sockets.adapter.rooms.get(room) || []);
+          clients.forEach((clientId) => {
+            if (clientId !== socketId) {
+              io.sockets.sockets.get(clientId)?.leave(room);
+            }
+          });
+        }
+      });
+    }
+
+    delete connectedUsers[socketId];
+    updateUserList();
+  }
+
+  function determineWinner(c1: string, c2: string) {
+    if (c1 === c2) return 0;
+    if (
+      (c1 === "pierre" && c2 === "ciseaux") ||
+      (c1 === "feuille" && c2 === "pierre") ||
+      (c1 === "ciseaux" && c2 === "feuille")
+    ) return 1;
+    return 2;
+  }
+
+  function cleanPreviousConnections(userId: string, currentSocketId: string) {
+    Object.entries(connectedUsers).forEach(([socketId, user]) => {
+      if (user.userId === userId && socketId !== currentSocketId) {
+        io.to(socketId).emit("forceDisconnect", {
+          reason: "Nouvelle connexion détectée"
+        });
+        io.sockets.sockets.get(socketId)?.disconnect();
+        delete connectedUsers[socketId];
+      }
+    });
+  }
+
+  function updateUserList() {
+    io.emit("usersUpdate", Object.values(connectedUsers));
+  }
 }
 
 function extractModifier(emoji: string = "") {
-  // Retourne uniquement le modificateur (ex: 🏾)
   const skinToneRegex = /[\u{1F3FB}-\u{1F3FF}]/u;
   const match = emoji.match(skinToneRegex);
   return match ? match[0] : "";
